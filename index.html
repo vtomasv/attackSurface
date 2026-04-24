@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Attack Surface Mapper</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="hero">
+      <div>
+        <p class="eyebrow">Educación y concientización</p>
+        <h1>Attack Surface Mapper</h1>
+        <p class="hero-copy">
+          Mapea activos contra técnicas de ataque, define exposición, amenazas,
+          vulnerabilidades, controles e impacto de negocio. Todo queda guardado
+          en este navegador mediante Web Storage.
+        </p>
+      </div>
+      <div class="hero-actions">
+        <button class="primary" id="exportProjectBtn">Exportar proyecto</button>
+        <label class="file-button">
+          Importar proyecto
+          <input type="file" id="importProjectInput" accept="application/json,.json" />
+        </label>
+        <button id="resetProjectBtn" type="button">Reiniciar en blanco</button>
+      </div>
+    </header>
+
+    <main class="app-shell">
+      <aside class="sidebar">
+        <section class="panel">
+          <div class="panel-title">
+            <h2>Activos</h2>
+            <button id="addAssetBtn">Nuevo</button>
+          </div>
+          <form id="assetForm" class="stack hidden">
+            <input type="hidden" id="assetId" />
+            <label>
+              Nombre
+              <input id="assetName" required placeholder="Portal clientes" />
+            </label>
+            <label>
+              Tipo sugerido
+              <select id="assetType"></select>
+            </label>
+            <label>
+              Criticidad
+              <select id="assetCriticality">
+                <option value="1">1 - Baja</option>
+                <option value="2">2 - Media baja</option>
+                <option value="3" selected>3 - Media</option>
+                <option value="4">4 - Alta</option>
+                <option value="5">5 - Crítica</option>
+              </select>
+            </label>
+            <label>
+              Responsable
+              <input id="assetOwner" placeholder="Equipo / área" />
+            </label>
+            <label>
+              Notas
+              <textarea id="assetNotes" rows="3" placeholder="Contexto del activo"></textarea>
+            </label>
+            <div class="form-actions">
+              <button class="primary" type="submit">Guardar activo</button>
+              <button type="button" id="cancelAssetBtn">Cancelar</button>
+            </div>
+          </form>
+          <div id="assetList" class="item-list"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-title">
+            <h2>Ataques</h2>
+            <button id="addAttackBtn">Nuevo</button>
+          </div>
+          <form id="attackForm" class="stack hidden">
+            <input type="hidden" id="attackId" />
+            <label>
+              Técnica / ataque
+              <input id="attackName" required placeholder="Phishing" />
+            </label>
+            <label>
+              ID MITRE
+              <input id="attackMitreId" placeholder="T1566" />
+            </label>
+            <label>
+              Táctica
+              <input id="attackTactic" placeholder="Initial Access" />
+            </label>
+            <label>
+              Descripción
+              <textarea id="attackDescription" rows="3"></textarea>
+            </label>
+            <div class="form-actions">
+              <button class="primary" type="submit">Guardar ataque</button>
+              <button type="button" id="cancelAttackBtn">Cancelar</button>
+            </div>
+          </form>
+          <div class="import-card">
+            <label>
+              Importar desde MITRE / CSV / texto
+              <textarea id="mitreInput" rows="6" placeholder="Pega un bundle STIX de MITRE ATT&CK, Navigator layer, CSV o una lista de técnicas"></textarea>
+            </label>
+            <div class="form-actions">
+              <button id="importMitreBtn" type="button">Extraer ataques</button>
+              <button id="loadSampleBtn" type="button">Cargar ejemplo</button>
+              <button id="loadCompletedDemoBtn" type="button">Demo completo</button>
+            </div>
+            <p class="hint">
+              STIX: extrae objetos <code>attack-pattern</code>. Navigator: extrae
+              <code>techniques</code>. Texto/CSV: una técnica por línea.
+            </p>
+          </div>
+          <div id="attackList" class="item-list compact"></div>
+        </section>
+      </aside>
+
+      <section class="workspace">
+        <section class="metrics-grid">
+          <article class="metric">
+            <span id="assetCount">0</span>
+            <small>Activos</small>
+          </article>
+          <article class="metric">
+            <span id="attackCount">0</span>
+            <small>Ataques</small>
+          </article>
+          <article class="metric">
+            <span id="highRiskCount">0</span>
+            <small>Cruces críticos</small>
+          </article>
+          <article class="metric">
+            <span id="coverageCount">0%</span>
+            <small>Celdas evaluadas</small>
+          </article>
+        </section>
+
+        <section class="panel controls-panel">
+          <div>
+            <h2>Umbrales de riesgo</h2>
+            <p class="hint">El puntaje va de 0 a 100. Mayor porcentaje significa mayor riesgo.</p>
+          </div>
+          <div class="thresholds">
+            <label>
+              Verde hasta
+              <input id="greenThreshold" type="number" min="0" max="100" />
+            </label>
+            <label>
+              Amarillo hasta
+              <input id="yellowThreshold" type="number" min="0" max="100" />
+            </label>
+            <button id="saveThresholdsBtn">Guardar umbrales</button>
+          </div>
+        </section>
+
+        <section class="panel matrix-panel">
+          <div class="matrix-header">
+            <div>
+              <h2>Matriz activo x ataque</h2>
+              <p class="hint">
+                Filas: ataques. Columnas: activos. Gris indica que el ataque no aplica al activo.
+              </p>
+            </div>
+            <div class="legend">
+              <span><i class="risk-low"></i> Verde</span>
+              <span><i class="risk-medium"></i> Amarillo</span>
+              <span><i class="risk-high"></i> Rojo</span>
+              <span><i class="risk-na"></i> No aplica</span>
+            </div>
+          </div>
+          <div class="table-wrap" id="matrixWrap"></div>
+        </section>
+      </section>
+    </main>
+
+    <dialog id="riskDialog">
+      <form method="dialog" id="riskForm" class="risk-form">
+        <input type="hidden" id="riskAssetId" />
+        <input type="hidden" id="riskAttackId" />
+        <div class="dialog-title">
+          <div>
+            <p class="eyebrow">Evaluación del cruce</p>
+            <h2 id="riskTitle">Riesgo</h2>
+          </div>
+          <button class="icon-button" id="closeRiskBtn" type="button" aria-label="Cerrar">×</button>
+        </div>
+
+        <label class="check-row">
+          <input type="checkbox" id="riskNotApplicable" />
+          Este ataque no puede afectar a este activo
+        </label>
+
+        <div class="slider-grid">
+          <label>
+            Vulnerabilidades <output id="vulnerabilityOut">0</output>
+            <input id="vulnerabilityScore" type="range" min="0" max="5" step="1" />
+          </label>
+          <label>
+            Exposición <output id="exposureOut">0</output>
+            <input id="exposureScore" type="range" min="0" max="5" step="1" />
+          </label>
+          <label>
+            Amenazas activas <output id="threatOut">0</output>
+            <input id="threatScore" type="range" min="0" max="5" step="1" />
+          </label>
+          <label>
+            Impacto negocio <output id="impactOut">0</output>
+            <input id="impactScore" type="range" min="0" max="5" step="1" />
+          </label>
+          <label>
+            Controles de mitigación <output id="controlOut">0</output>
+            <input id="controlScore" type="range" min="0" max="5" step="1" />
+          </label>
+        </div>
+
+        <div class="score-card">
+          <span id="riskPreview">0%</span>
+          <small id="riskPreviewLabel">Sin evaluar</small>
+        </div>
+
+        <label>
+          Vulnerabilidades observadas
+          <textarea id="vulnerabilityText" rows="3" placeholder="Ej: credenciales débiles, software obsoleto"></textarea>
+        </label>
+        <label>
+          Exposición
+          <textarea id="exposureText" rows="3" placeholder="Ej: publicado en Internet, acceso VPN, tercero conectado"></textarea>
+        </label>
+        <label>
+          Amenazas activas
+          <textarea id="threatText" rows="3" placeholder="Ej: campañas de phishing, botnets, explotación conocida"></textarea>
+        </label>
+        <label>
+          Controles de mitigación
+          <textarea id="controlText" rows="3" placeholder="Ej: MFA, hardening, WAF, monitoreo, backups"></textarea>
+        </label>
+        <label>
+          Impacto del negocio
+          <textarea id="impactText" rows="3" placeholder="Ej: pérdida operacional, fuga de datos, sanciones"></textarea>
+        </label>
+
+        <div class="form-actions end">
+          <button type="button" id="deleteRiskBtn">Limpiar evaluación</button>
+          <button class="primary" id="saveRiskBtn" type="submit">Guardar evaluación</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script src="app.js"></script>
+  </body>
+</html>
